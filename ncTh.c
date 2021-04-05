@@ -368,6 +368,7 @@ void* waitServer(void* data) {
 
 		if (read == 0) {
 			*disconnected = 1;
+			
 		}
 		else {
 
@@ -375,6 +376,10 @@ void* waitServer(void* data) {
 
 			buf[strlen(buf) - 1] = '\0';
 			printf("%s\n", buf);
+		}
+
+		if (*disconnected == 1) {
+			pthread_exit(NULL);
 		}
 
 	}
@@ -391,6 +396,8 @@ void* clientStdin(void* data) {
 
 	listener = info.fd;
 
+	int* disconnected = info.disconnected;
+
 	time_t* start = info.start;
 	while (1) {
 		bzero(buf, 1024);
@@ -398,6 +405,11 @@ void* clientStdin(void* data) {
 		updateTime(start);
 
 		int bytes_sent = send(listener, buf, strlen(buf), 0);
+
+		if (*disconnected == 1) {
+			pthread_exit(NULL);
+		}
+
 	}
 	pthread_exit(NULL);
 
@@ -455,6 +467,8 @@ void client(char* hostname, unsigned int port, unsigned int sourceport, unsigned
 		return;
 	}
 
+	freeaddrinfo(res);
+
 	time_t start = time(NULL);
 
 	int disconnected = 0;
@@ -469,19 +483,19 @@ void client(char* hostname, unsigned int port, unsigned int sourceport, unsigned
 	pthread_create(&t1, NULL, waitServer, &info);
 
 	while (1) {
+
 		if (isTimeout(start, timeout)|| disconnected ) {
 			break;
 		}
 	}
 
 	close(sockfd);
-	freeaddrinfo(res);
+	
 }
 int main(int argc, char** argv) {
 
 	// This is some sample code feel free to delete it
 	// This is the main program for the thread version of nc
-	// test
 
 	struct commandOptions cmdOps;
 	int retVal = parseOptions(argc, argv, &cmdOps);
