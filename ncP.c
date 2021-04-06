@@ -253,7 +253,11 @@ void server(char* hostname, unsigned int port, int k, int r) {
 						}
 						if (sender_fd != 0) { //not sent to standard output if get from standard input
 							buf[strlen(buf) - 1] = '\0';
-							printf("%s\n", buf);
+							//printf("%s\n", buf);
+
+							fprintf(stdout, "%s\n", buf);
+							fflush(stdout);
+							
 						}
 					}
 				} // END handle data from client
@@ -372,6 +376,7 @@ void client(char* hostname, unsigned int port, unsigned int sourceport, unsigned
 					else {
 						buf[strlen(buf) - 1] = '\0';
 						printf("%s\n", buf);
+						fflush(stdout);
 					}
 				}
 
@@ -393,7 +398,7 @@ int main(int argc, char** argv) {
 
 	struct commandOptions cmdOps;
 	int retVal = parseOptions(argc, argv, &cmdOps);
-	printf("Command parse outcome %d\n", retVal);
+	fprintf(stdout,"Command parse outcome %d\n", retVal);
 
 	printf("-k = %d\n", cmdOps.option_k);
 	printf("-l = %d\n", cmdOps.option_l);
@@ -406,6 +411,7 @@ int main(int argc, char** argv) {
 	printf("Host to connect to = %s\n", cmdOps.hostname);
 	printf("Port to connect to = %u\n", cmdOps.port);
 
+	fflush(stdout);
 	//if l then server, else client
 	if (cmdOps.option_l) {
 		server(cmdOps.hostname, cmdOps.port, cmdOps.option_k, cmdOps.option_r);

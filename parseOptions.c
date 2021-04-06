@@ -31,7 +31,7 @@ int parseOptions(int argc, char * argv[], struct commandOptions * co) {
   for (i = 1; i < argc; i++) {
     // This next line is for illustraction purposes only and needs to be removed
     // once things are working 
-    fprintf(stderr, "Remove before submitting Arg %d is: %s\n", i, argv[i]);
+    //fprintf(stderr, "Remove before submitting Arg %d is: %s\n", i, argv[i]);
 
     // Check for the various options
     if ((strcmp(argv[i], K_OPTION) == 0) && (!lastTwo)) {

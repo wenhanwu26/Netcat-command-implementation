@@ -161,6 +161,7 @@ void* child(void* data) {
 
 			buf[strlen(buf) - 1] = '\0';
 			printf("%s\n", buf);
+			fflush(stdout);
 
 			sender_fd = newfd;
 			//send to other fd
@@ -213,6 +214,8 @@ void* readstdin(void* data) {
 		int sender_fd;
 		bzero(buf, 1024);
 		//nbytes = recv(0, buf, sizeof buf, 0); //0 stdin
+
+
 
 		fgets(buf, sizeof(buf), stdin);
 
@@ -368,7 +371,6 @@ void* waitServer(void* data) {
 
 		if (read == 0) {
 			*disconnected = 1;
-			
 		}
 		else {
 
@@ -376,6 +378,7 @@ void* waitServer(void* data) {
 
 			buf[strlen(buf) - 1] = '\0';
 			printf("%s\n", buf);
+			fflush(stdout);
 		}
 
 		if (*disconnected == 1) {
@@ -448,7 +451,6 @@ void client(char* hostname, unsigned int port, unsigned int sourceport, unsigned
 		hintsClient.ai_socktype = SOCK_STREAM;
 		hintsClient.ai_flags = AI_PASSIVE;     // fill in my IP for me
 		int ai = getaddrinfo(NULL, sourceportNum, &hintsClient, &resClient);
-		//printf("get successfully? '%d'\n", ai);
 
 
 
@@ -499,18 +501,18 @@ int main(int argc, char** argv) {
 
 	struct commandOptions cmdOps;
 	int retVal = parseOptions(argc, argv, &cmdOps);
-	printf("Command parse outcome %d\n", retVal);
+	//printf("Command parse outcome %d\n", retVal);
 
-	printf("-k = %d\n", cmdOps.option_k);
-	printf("-l = %d\n", cmdOps.option_l);
-	printf("-v = %d\n", cmdOps.option_v);
-	printf("-r = %d\n", cmdOps.option_r);
-	printf("-p = %d\n", cmdOps.option_p);
-	printf("-p port = %u\n", cmdOps.source_port);
-	printf("-w  = %d\n", cmdOps.option_w);
-	printf("Timeout value = %u\n", cmdOps.timeout);
-	printf("Host to connect to = %s\n", cmdOps.hostname);
-	printf("Port to connect to = %u\n", cmdOps.port);
+	//printf("-k = %d\n", cmdOps.option_k);
+	//printf("-l = %d\n", cmdOps.option_l);
+	//printf("-v = %d\n", cmdOps.option_v);
+	//printf("-r = %d\n", cmdOps.option_r);
+	//printf("-p = %d\n", cmdOps.option_p);
+	//printf("-p port = %u\n", cmdOps.source_port);
+	//printf("-w  = %d\n", cmdOps.option_w);
+	//printf("Timeout value = %u\n", cmdOps.timeout);
+	//printf("Host to connect to = %s\n", cmdOps.hostname);
+	//printf("Port to connect to = %u\n", cmdOps.port);
 
 	//if l then server, else client
 	if (cmdOps.option_l) {
