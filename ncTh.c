@@ -103,19 +103,22 @@ void add_to_fds(int* fds[], int newfd, int* fd_count, int* fd_size)
 void del_from_fds(int fds[], int i, int* fd_count)
 {
 	// Copy the one from the end over this one
-	pthread_mutex_lock(&mutex1); 
+	pthread_mutex_lock(&mutex1);
 	fds[i] = fds[*fd_count - 1];
 
 	(*fd_count)--;
 	pthread_mutex_unlock(&mutex1);
 }
 
+//serverInfo that pass into thread for thread to use
 struct serverInfo {
 	int* fds;   // indicates if -k was provided.
 	int* fd_count;
 	int fd_size;
 };
+
 // https://blog.gtwang.org/programming/pthread-multithreading-programming-in-c-tutorial/
+//thread for handling connections from outside
 void* child(void* data) {
 	struct sockaddr_storage remoteaddr;
 	socklen_t addrlen;
@@ -159,33 +162,39 @@ void* child(void* data) {
 			bzero(buf, 1024);
 			nbytes = recv(newfd, buf, sizeof buf, 0);
 
-			buf[strlen(buf) - 1] = '\0';
-			printf("%s\n", buf);
-			fflush(stdout);
 
-			sender_fd = newfd;
-			//send to other fd
+			if (nbytes > 0) { // if receive byte > 0 then send to everyone
 
-			for (int j = 0; j < *fd_count; j++) {
-				// Send to everyone!
-				int dest_fd = fds[j];
+				sender_fd = newfd;
+				//send to other fd
 
-				// Except the listener and ourselves and stdin
-				if (dest_fd == sender_fd) {
-					i = j;
-				}
-				if (dest_fd != listener && dest_fd != sender_fd && dest_fd != 0) {
-					if (send(dest_fd, buf, strlen(buf), 0) == -1) {
-						perror("send");
+				for (int j = 0; j < *fd_count; j++) {
+					// Send to everyone!
+					int dest_fd = fds[j];
+
+					// Except the listener and ourselves and stdin
+					if (dest_fd == sender_fd) {
+						i = j;
+					}
+					if (dest_fd != listener && dest_fd != sender_fd && dest_fd != 0) {
+						if (send(dest_fd, buf, strlen(buf), 0) == -1) {
+							perror("send");
+						}
 					}
 				}
+
+
+
+				buf[strlen(buf) - 1] = '\0';
+				printf("%s\n", buf);
+				fflush(stdout);
 			}
 		} while (nbytes > 0);
 
 		// Got error or connection closed by client
 		if (nbytes == 0) {
 			// Connection closed
-			printf("pollserver: socket %d hung up\n", sender_fd);
+			//printf("Thserver: socket %d hung up\n", sender_fd);
 		}
 		else {
 			perror("recv");
@@ -195,10 +204,14 @@ void* child(void* data) {
 
 		del_from_fds(fds, i, fd_count);
 
+		sleep(1); // let server check whether should disconnected (k)
+
 	}
 	pthread_exit(NULL);
 }
 
+
+//thread for reading stdin
 void* readstdin(void* data) {
 	int listener;
 	char buf[1024];
@@ -235,7 +248,7 @@ void* readstdin(void* data) {
 
 			if (dest_fd != listener && dest_fd != sender_fd && dest_fd != 0) {
 				if (send(dest_fd, buf, strlen(buf), 0) == -1) {
-					perror("send");
+					//perror("send");
 				}
 			}
 		}
@@ -248,7 +261,7 @@ void server(char* hostname, unsigned int port, int k, int r) {
 	struct sockaddr_storage remoteaddr;
 	socklen_t addrlen;
 	int listener, newfd;
-	char remoteIP[INET6_ADDRSTRLEN];
+	char remoteIP[INET6_ADDRSTRLEN];  
 	char buf[1024];
 
 	int fd_count = 0;
@@ -262,7 +275,7 @@ void server(char* hostname, unsigned int port, int k, int r) {
 
 	listener = get_listener_socket(hostname, port);
 	if (listener == -1) {
-		fprintf(stderr, "error getting listening socket\n");
+		fprintf(stderr, "ncTh: Address already in use\n");
 		exit(1);
 	}
 
@@ -317,7 +330,8 @@ void server(char* hostname, unsigned int port, int k, int r) {
 	while (1) {
 		if (fd_count > 2) {
 			hasConnected = 1;
-		}else if (hasConnected && fd_count <= 2 && k == 0) {
+		}
+		else if (hasConnected && fd_count <= 2 && k == 0) {
 			break;
 		}
 	}
@@ -404,11 +418,16 @@ void* clientStdin(void* data) {
 	time_t* start = info.start;
 	while (1) {
 		bzero(buf, 1024);
-		fgets(buf, sizeof(buf), stdin);
-		updateTime(start);
 
-		int bytes_sent = send(listener, buf, strlen(buf), 0);
+		if (fgets(buf, sizeof(buf), stdin) == NULL) {
+			//*disconnected = 1;		
+			close(0); //close stdin when receive eof
+		}
+		else {
+			updateTime(start);
 
+			int bytes_sent = send(listener, buf, strlen(buf), 0);
+		}
 		if (*disconnected == 1) {
 			pthread_exit(NULL);
 		}
@@ -437,7 +456,6 @@ void client(char* hostname, unsigned int port, unsigned int sourceport, unsigned
 
 	sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 
-
 	// get ready to connect
 
 
@@ -465,7 +483,7 @@ void client(char* hostname, unsigned int port, unsigned int sourceport, unsigned
 	}
 
 	if (connect(sockfd, res->ai_addr, res->ai_addrlen) == -1) {
-		fprintf(stderr, "Connection fail\n");
+		//fprintf(stderr, "Connection refused\n");
 		return;
 	}
 
@@ -486,13 +504,18 @@ void client(char* hostname, unsigned int port, unsigned int sourceport, unsigned
 
 	while (1) {
 
-		if (isTimeout(start, timeout)|| disconnected ) {
+		if (isTimeout(start, timeout)) {
+			break;
+		}
+
+		if (disconnected) {
+
 			break;
 		}
 	}
 
 	close(sockfd);
-	
+
 }
 int main(int argc, char** argv) {
 
@@ -515,10 +538,37 @@ int main(int argc, char** argv) {
 	//printf("Port to connect to = %u\n", cmdOps.port);
 
 	//if l then server, else client
+
+	if (cmdOps.option_k && !cmdOps.option_l) {
+		fprintf(stderr, "ncTh: must use -l with -k\n");
+		return 1;
+	}
+	else if (cmdOps.option_l && cmdOps.option_p) {
+		fprintf(stderr, "ncTh: must not use -l with -p\n");
+		return 1;
+	}
+	else if (!cmdOps.option_l && cmdOps.option_r) {
+		fprintf(stderr, "ncTh: must use -l with -r\n");
+		return 1;
+	}
+
 	if (cmdOps.option_l) {
+
+		if (!cmdOps.port) {
+			fprintf(stderr, "ncTh: must have port number\n");
+			return 1;
+		}
+
 		server(cmdOps.hostname, cmdOps.port, cmdOps.option_k, cmdOps.option_r);
 	}
 	else {
+
+
+		if (!cmdOps.hostname || !cmdOps.port) {
+			fprintf(stderr, "ncTh: must have host name and port number\n");
+			return 1;
+		}
+
 		if (cmdOps.option_w == 1) {
 			client(cmdOps.hostname, cmdOps.port, cmdOps.source_port, cmdOps.timeout);
 		}

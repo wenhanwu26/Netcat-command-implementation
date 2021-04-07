@@ -25,6 +25,7 @@ void* get_in_addr(struct sockaddr* sa)
 	return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 //https://stackoverflow.com/questions/2371910/how-to-get-the-port-number-from-struct-addrinfo-in-unix-c
+//get port number
 in_port_t get_in_port(struct sockaddr* sa)
 {
 	if (sa->sa_family == AF_INET)
@@ -46,7 +47,7 @@ int get_listener_socket(char* hostname, unsigned int port)
 	hints.ai_family = AF_INET;     // IPv4 
 	hints.ai_socktype = SOCK_STREAM; // TCP stream sockets
 	hints.ai_flags = AI_PASSIVE;     // fill in my IP for me  
-
+	 
 	char portNum[12];
 	sprintf(portNum, "%d", port);
 
@@ -135,7 +136,7 @@ void server(char* hostname, unsigned int port, int k, int r) {
 
 	listener = get_listener_socket(hostname, port);
 	if (listener == -1) {
-		fprintf(stderr, "error getting listening socket\n");
+		fprintf(stderr, "ncTh: Address already in use\n");
 		exit(1);
 	}
 
@@ -221,7 +222,7 @@ void server(char* hostname, unsigned int port, int k, int r) {
 						// Got error or connection closed by client
 						if (nbytes == 0) {
 							// Connection closed
-							printf("pollserver: socket %d hung up\n", sender_fd);
+							//printf("pollserver: socket %d hung up\n", sender_fd);
 						}
 						else {
 							perror("recv");
@@ -246,7 +247,7 @@ void server(char* hostname, unsigned int port, int k, int r) {
 							// Except the listener and ourselves and stdin
 							if (dest_fd != listener && dest_fd != sender_fd && dest_fd != 0) {
 								if (send(dest_fd, buf, strlen(buf), 0) == -1) {
-									perror("send");
+									//perror("send");
 								}
 							}
 
@@ -255,7 +256,7 @@ void server(char* hostname, unsigned int port, int k, int r) {
 							buf[strlen(buf) - 1] = '\0';
 							//printf("%s\n", buf);
 
-							fprintf(stdout, "%s\n", buf);
+							printf( "%s\n", buf);
 							fflush(stdout);
 							
 						}
@@ -272,7 +273,7 @@ void server(char* hostname, unsigned int port, int k, int r) {
 
 }
 
-//host name and port number want to connect to
+//host name and port number want to connect to and time out
 void client(char* hostname, unsigned int port, unsigned int sourceport, unsigned int timeout) {//add source port
 	int status;
 	struct addrinfo hints;
@@ -320,13 +321,8 @@ void client(char* hostname, unsigned int port, unsigned int sourceport, unsigned
 		//printf("Bind successfully? '%d'\n", success);
 	}
 
-
-
-
-
-
 	if (connect(sockfd, res->ai_addr, res->ai_addrlen) == -1) {
-		fprintf(stderr, "Connection fail\n");
+		//fprintf(stderr, "Connection fail\n");
 		return;
 	}
 
@@ -353,6 +349,7 @@ void client(char* hostname, unsigned int port, unsigned int sourceport, unsigned
 		}
 
 		if (poll_count == 0) {
+			//timeout
 			break;
 		}
 
@@ -361,11 +358,19 @@ void client(char* hostname, unsigned int port, unsigned int sourceport, unsigned
 		for (int i = 0; i < fd_count; i++) {
 			if (pfds[i].revents & POLLIN) {// We got one!!
 				if (pfds[i].fd == 0) {//stdin
-					fgets(sendbuf, sizeof(sendbuf), stdin);
-					//sendbuf[strlen(sendbuf) - 1] = '\0';
 
-					//send to server
-					int bytes_sent = send(sockfd, sendbuf, strlen(sendbuf), 0);
+
+					if (fgets(sendbuf, sizeof(sendbuf), stdin)==NULL) {
+						//shutdown(sockfd, 0);
+						close(0);  //close stdin when receive eof
+						//disconnected = 1; 
+					}
+					else {
+						//sendbuf[strlen(sendbuf) - 1] = '\0';
+
+						//send to server
+						int bytes_sent = send(sockfd, sendbuf, strlen(sendbuf), 0);
+					}
 
 				}
 				else {//get data from server
@@ -379,13 +384,14 @@ void client(char* hostname, unsigned int port, unsigned int sourceport, unsigned
 						fflush(stdout);
 					}
 				}
-
 			}
 		}
 		if (disconnected) {
+			//close(sockfd); //when server disconneted, sliently close
+			//shutdown(sockfd, SHUT_WR);
+			//printf("here\n");    
 			break;
 		}
-
 	}
 	close(sockfd);
 	freeaddrinfo(res);
@@ -398,25 +404,51 @@ int main(int argc, char** argv) {
 
 	struct commandOptions cmdOps;
 	int retVal = parseOptions(argc, argv, &cmdOps);
-	fprintf(stdout,"Command parse outcome %d\n", retVal);
+	//fprintf(stdout,"Command parse outcome %d\n", retVal);
 
-	printf("-k = %d\n", cmdOps.option_k);
-	printf("-l = %d\n", cmdOps.option_l);
-	printf("-v = %d\n", cmdOps.option_v);
-	printf("-r = %d\n", cmdOps.option_r);
-	printf("-p = %d\n", cmdOps.option_p);
-	printf("-p port = %u\n", cmdOps.source_port);
-	printf("-w  = %d\n", cmdOps.option_w);
-	printf("Timeout value = %u\n", cmdOps.timeout);
-	printf("Host to connect to = %s\n", cmdOps.hostname);
-	printf("Port to connect to = %u\n", cmdOps.port);
+	//printf("-k = %d\n", cmdOps.option_k);
+	//printf("-l = %d\n", cmdOps.option_l);
+	//printf("-v = %d\n", cmdOps.option_v);
+	//printf("-r = %d\n", cmdOps.option_r);
+	//printf("-p = %d\n", cmdOps.option_p);
+	//printf("-p port = %u\n", cmdOps.source_port);
+	//printf("-w  = %d\n", cmdOps.option_w);
+	//printf("Timeout value = %u\n", cmdOps.timeout);
+	//printf("Host to connect to = %s\n", cmdOps.hostname);
+	//printf("Port to connect to = %u\n", cmdOps.port);
 
-	fflush(stdout);
-	//if l then server, else client
-	if (cmdOps.option_l) {
+
+	//error checking 
+	if (cmdOps.option_k && !cmdOps.option_l) {
+		fprintf(stderr, "ncP: must use -l with -k\n");
+		return 1;
+	}
+	else if (cmdOps.option_l && cmdOps.option_p) {
+		fprintf(stderr, "ncP: must not use -l with -p\n");
+		return 1;
+	}
+	else if (!cmdOps.option_l && cmdOps.option_r) {
+		fprintf(stderr, "ncP: must use -l with -r\n");
+		return 1;
+	}
+
+	if (cmdOps.option_l) {  
+		  
+		if (!cmdOps.port) {
+			fprintf(stderr, "ncP: must have port number\n");
+			return 1;
+		}
+
 		server(cmdOps.hostname, cmdOps.port, cmdOps.option_k, cmdOps.option_r);
 	}
 	else {
+
+
+		if (!cmdOps.hostname || !cmdOps.port) {
+			fprintf(stderr, "ncP: must have host name and port number\n");
+			return 1;
+		}
+
 		if (cmdOps.option_w == 1) {
 			client(cmdOps.hostname, cmdOps.port, cmdOps.source_port, cmdOps.timeout);
 		}
