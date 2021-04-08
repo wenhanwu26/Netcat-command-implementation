@@ -33,6 +33,7 @@ in_port_t get_in_port(struct sockaddr* sa)
 
 	return (((struct sockaddr_in6*)sa)->sin6_port);
 }
+//https://beej.us/guide/bgnet/html/
 // Return a listening socket
 int get_listener_socket(char* hostname, unsigned int port)
 {
@@ -87,6 +88,7 @@ int get_listener_socket(char* hostname, unsigned int port)
 
 	return listener;
 }
+//https://beej.us/guide/bgnet/html/
 // Add a new file descriptor to the set
 void add_to_pfds(struct pollfd* pfds[], int newfd, int* fd_count, int* fd_size)
 {
@@ -103,7 +105,7 @@ void add_to_pfds(struct pollfd* pfds[], int newfd, int* fd_count, int* fd_size)
 
 	(*fd_count)++;
 }
-
+//https://beej.us/guide/bgnet/html/
 // Remove an index from the set
 void del_from_pfds(struct pollfd pfds[], int i, int* fd_count)
 {
@@ -112,7 +114,7 @@ void del_from_pfds(struct pollfd pfds[], int i, int* fd_count)
 
 	(*fd_count)--;
 }
-//host name and port number want ot start a server
+//host name and port number want to start a server, and k ,r value
 void server(char* hostname, unsigned int port, int k, int r) {
 	int status;
 	struct sockaddr_storage remoteaddr;
@@ -208,7 +210,12 @@ void server(char* hostname, unsigned int port, int k, int r) {
 					int nbytes;
 
 					if (pfds[i].fd == 0) {//standard input
-						fgets(buf, sizeof(buf), stdin);
+						//fgets(buf, sizeof(buf), stdin);
+
+						if (fgets(buf, sizeof(buf), stdin) == NULL) {
+							//*disconnected = 1;		
+							close(0); //close stdin when receive eof
+						}
 						//buf[strlen(buf) - 1] = '\0';
 						nbytes = 1; //not trigger error checking
 					}
@@ -317,7 +324,12 @@ void client(char* hostname, unsigned int port, unsigned int sourceport, unsigned
 			exit(1);
 		}
 
+		//bind 
 		int success = bind(sockfd, resClient->ai_addr, resClient->ai_addrlen); //bind client address (source port)
+		if (success == -1) {
+			fprintf(stderr, "bind failed: Address already in use\n");
+			return;
+		}
 		//printf("Bind successfully? '%d'\n", success);
 	}
 

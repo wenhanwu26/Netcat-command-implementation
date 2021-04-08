@@ -230,25 +230,31 @@ void* readstdin(void* data) {
 
 
 
-		fgets(buf, sizeof(buf), stdin);
+		//fgets(buf, sizeof(buf), stdin);
 
 
-		//do not print to stdoutput
-		//buf[strlen(buf)-1] = '\0';
-		//printf("%s\n", buf);
+		if (fgets(buf, sizeof(buf), stdin) == NULL) {
+			//*disconnected = 1;		
+			close(0); //close stdin when receive eof
+		}
+		else {
+			//do not print to stdoutput
+			//buf[strlen(buf)-1] = '\0';
+			//printf("%s\n", buf);
 
-		sender_fd = 0;
-		//send to other fd
+			sender_fd = 0;
+			//send to other fd
 
-		for (int j = 0; j < *fd_count; j++) {
-			// Send to everyone!
-			int dest_fd = fds[j];
+			for (int j = 0; j < *fd_count; j++) {
+				// Send to everyone!
+				int dest_fd = fds[j];
 
-			// Except the listener and ourselves and stdin
+				// Except the listener and ourselves and stdin
 
-			if (dest_fd != listener && dest_fd != sender_fd && dest_fd != 0) {
-				if (send(dest_fd, buf, strlen(buf), 0) == -1) {
-					//perror("send");
+				if (dest_fd != listener && dest_fd != sender_fd && dest_fd != 0) {
+					if (send(dest_fd, buf, strlen(buf), 0) == -1) {
+						//perror("send");
+					}
 				}
 			}
 		}
@@ -479,11 +485,16 @@ void client(char* hostname, unsigned int port, unsigned int sourceport, unsigned
 		}
 
 		int success = bind(sockfd, resClient->ai_addr, resClient->ai_addrlen); //bind client address (source port)
+		if (success == -1) {
+			fprintf(stderr, "bind failed: Address already in use\n");
+			return;
+		}
+		
 		//printf("Bind successfully? '%d'\n", success);
 	}
 
 	if (connect(sockfd, res->ai_addr, res->ai_addrlen) == -1) {
-		//fprintf(stderr, "Connection refused\n");
+		//fprintf(stderr, "Connection fail\n");
 		return;
 	}
 
